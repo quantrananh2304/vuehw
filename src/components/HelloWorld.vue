@@ -72,7 +72,14 @@
         ></b-pagination>
       </b-col>
     </b-row>
+    <b-form-group label="Selection mode:" label-cols-md="4">
+      <b-form-select v-model="selectMode" :options="modes" class="mb-3"></b-form-select>
+    </b-form-group>
     <b-table 
+    ref="selectableTable"
+    selectable
+    :select-mode="selectMode"
+    @row-selected="onRowSelected"
     show-empty
     stacked="md"
     :items="data" 
@@ -83,7 +90,29 @@
     :filter-included-fields="filterOn"
     @filtered="onFiltered"
     striped responsive="sm">
+    <template v-slot:cell(edit)="row">
+        <b-button @click="edit(row.item.company)">Edit</b-button>
+    </template>
+    <template v-slot:cell(selected)="{ rowSelected }">
+        <template v-if="rowSelected">
+          <span aria-hidden="true">&check;</span>
+          <span class="sr-only">Selected</span>
+        </template>
+        <template v-else>
+          <span aria-hidden="true">&nbsp;</span>
+          <span class="sr-only">Not selected</span>
+        </template>
+      </template>
     </b-table>
+    <p>
+      <b-button size="sm" @click="selectAllRows">Select all</b-button>
+      <b-button size="sm" @click="clearSelected">Clear selected</b-button>
+      <b-button size="sm" @click="del">Delete Selected</b-button>
+    </p>
+    <p>
+      Selected Rows:<br>
+      {{ selected }}
+    </p>
   </div>
 </template>
 
@@ -97,24 +126,30 @@ export default {
   },
   data() {
     return {
-      api: "http://10.30.48.110:3000",
+      api: "http://192.168.43.158:3000",
       data: [],
       filter: null,
       serach: '',
       // fields: ['#', 'Company', 'City', 'Country', 'Country Code', 'Currency Code']
       fields: [
-        { key: 'id', label: '#', sortDirection: 'desc' },
+        'selected',
+        { key: 'id', label: '#' },
         { key: 'company', label: 'Company' },
         { key: 'city', label: 'City', filterByFormatted: true },
         { key: 'country', label: 'Country' },
         { key: 'countryCode', label: 'Country Code' },
-        { key: 'currencyCode', label: 'Currency Code' }
+        { key: 'currencyCode', label: 'Currency Code' },
+        { key: 'edit', label: '' }
       ],
       filterOn: [],
       currentPage: 1,
-      perPage: 5,
+      perPage: 100,
       totalRows: 1,
-      pageOptions: [5, 10, 15]
+      pageOptions: [25, 50, 100],
+      modes: ['multi', 'single'],
+      selectMode: 'multi',
+      selected: [],
+      selectedCompany: []
     }
   },
   created() {
@@ -137,6 +172,49 @@ export default {
       // Trigger pagination to update the number of buttons/pages due to filtering
       this.totalRows = filteredItems.length
       this.currentPage = 1
+    },
+    onRowSelected(items) {
+        this.selected = items
+        // console.log(this.selected)
+        // this.selectedCompany.push(this.selected[this.selected.length-1].company)
+        // console.log(this.selectedCompany)
+    },
+    selectAllRows() {
+      this.$refs.selectableTable.selectAllRows()
+    },
+    clearSelected() {
+      this.$refs.selectableTable.clearSelected()
+    },
+    edit(company, city, country, countryCode, currencyCode) {
+      var param = {
+        company: company,
+        city: city,
+        countryCode: countryCode,
+        currencyCode: currencyCode
+      }
+      axios.post(this.api + '/edit', param).then(res => {
+        console.log(res)
+      }).catch(e => {
+        this.error_.push(e)
+      })
+      console.log(this.error_)
+    },
+    del() {
+      // console.log(this.selected.length)
+      // console.log(this.selected)
+      for (let i = this.selected.length; i--; i >= 0) {
+        this.selectedCompany.push(this.selected[i].company)
+      }
+      var param = {
+        company: this.selectedCompany
+      }
+      console.log(param)
+      axios.post(this.api + '/delete', param).then(res => {
+        console.log(res)
+      }).catch(e => {
+        this.error_.push(e)
+      })
+      console.log(this.error_)
     }
   }
 }
